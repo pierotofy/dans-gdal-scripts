@@ -140,7 +140,8 @@ NdvDef::NdvDef(const GDALDatasetH ds, const std::vector<size_t> &bandlist) :
 	invert(false)
 {
 	bool got_error = 0;
-
+	int alpha_idx = -1;
+	
 	NdvSlab slab;
 
 	size_t band_count = GDALGetRasterCount(ds);
@@ -155,11 +156,22 @@ NdvDef::NdvDef(const GDALDatasetH ds, const std::vector<size_t> &bandlist) :
 		if(success) {
 			slab.range_by_band.push_back(NdvInterval(val, val));
 		} else {
-			got_error = true;
+			auto type = GDALGetRasterDataType(band);
+			auto bits = GDALGetDataTypeSizeBits(type);
+			if (GDALGetRasterColorInterpretation(band) == GCI_AlphaBand) {
+				alpha_idx = bandlist_idx;
+				slab.range_by_band.push_back(NdvInterval(0.0, 0.25 * (1ULL << bits)));
+			}
+			else
+			{
+				slab.range_by_band.push_back(NdvInterval(0.0, 1ULL << bits));
+			}
+
+			got_error = 1;
 		}
 	}
 
-	if(!got_error) {
+	if(!got_error || alpha_idx >= 0) {
 		slabs.push_back(slab);
 	}
 }
